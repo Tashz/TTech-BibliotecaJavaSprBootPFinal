@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Biblioteca Central</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; }
+        header { background: #1a237e; color: white; padding: 1rem; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .header-content { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        nav a { color: white; text-decoration: none; margin-left: 20px; font-weight: 500; cursor: pointer; }
+        .btn-admin { background: rgba(255,255,255,0.1); padding: 5px 10px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.3); }
+
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+        .search-bar { display: flex; gap: 10px; margin-bottom: 30px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .search-input { flex-grow: 1; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; }
+
+        #lista-libros { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; }
+        .card { background: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s; }
+        .card:hover { transform: translateY(-5px); }
+        .card-img { width: 100%; height: 200px; object-fit: contain; background: #f9f9f9; }
+        .card-body { padding: 15px; flex-grow: 1; display: flex; flex-direction: column; }
+        .stock-badge { align-self: flex-start; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; margin-bottom: 10px; background: #e8f5e9; color: #2e7d32; }
+        .price-box { background: #f8f9fa; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 0.9rem; }
+        .actions { display: flex; gap: 10px; margin-top: auto; }
+        .btn { flex: 1; padding: 10px; border: none; border-radius: 6px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-rent { background: #ff9800; } .btn-buy { background: #4caf50; } .btn:disabled { background: #e0e0e0; color: #999; cursor: not-allowed; }
+
+        /* CARRITO & MODAL */
+        #carrito-overlay, #modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; display: none; }
+        #modal-overlay { z-index: 300; justify-content: center; align-items: center; }
+
+        #carrito-panel { position: fixed; top: 0; right: -400px; width: 380px; height: 100%; background: white; z-index: 201; transition: right 0.3s; display: flex; flex-direction: column; box-shadow: -5px 0 15px rgba(0,0,0,0.1); }
+        #carrito-panel.abierto { right: 0; }
+        .cart-header { padding: 20px; background: #1a237e; color: white; display: flex; justify-content: space-between; }
+        .cart-body { flex: 1; padding: 20px; overflow-y: auto; }
+        .cart-footer { padding: 20px; background: #f9f9f9; border-top: 1px solid #eee; }
+        .cart-item { display: flex; justify-content: space-between; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #eee; }
+
+        /* FORMULARIO GUEST */
+        .guest-form input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        .guest-form label { font-size: 0.85rem; font-weight: bold; color: #555; display: block; margin-bottom: 3px; }
+
+        /* MODAL BOX */
+        #modal-box { background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .modal-btn { background: #3f51b5; color: white; padding: 10px 25px; border: none; border-radius: 4px; cursor: pointer; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+<div id="modal-overlay"><div id="modal-box"><h3 id="modal-title"></h3><p id="modal-msg"></p><button class="modal-btn" onclick="cerrarModal()">Aceptar</button></div></div>
+
+<header>
+    <div class="header-content">
+        <h1>📚 Biblioteca Central</h1>
+        <nav>
+            <a onclick="cargarLibros()">Inicio</a>
+            <a onclick="toggleCarrito()">🛒 Carrito (<span id="cart-count">0</span>)</a>
+            <a href="admin.html" class="btn-admin">⚙️ Bibliotecario</a>
+        </nav>
+    </div>
+</header>
+
+<div class="container">
+    <div class="search-bar">
+        <input type="text" id="buscador" class="search-input" placeholder="Buscar libro...">
+    </div>
+    <div id="lista-libros"><p style="text-align:center;">Cargando...</p></div>
+</div>
+
+<div id="carrito-overlay" onclick="toggleCarrito()"></div>
+<div id="carrito-panel">
+    <div class="cart-header"><h2>Mi Canasta</h2><span onclick="toggleCarrito()" style="cursor:pointer;font-size:1.5rem;">&times;</span></div>
+    <div class="cart-body" id="cart-items"></div>
+
+    <div class="cart-footer">
+        <div style="font-size:1.2rem; font-weight:bold; margin-bottom:15px; display:flex; justify-content:space-between;">
+            <span>Total:</span><span>$<span id="cart-total">0.00</span></span>
+        </div>
+
+        <div class="guest-form">
+            <label>DNI (Obligatorio para Préstamos)</label>
+            <input id="guest-dni" placeholder="Tu DNI">
+            <div style="display:flex; gap:10px;">
+                <div style="flex:1"><label>Nombre *</label><input id="guest-nombre"></div>
+                <div style="flex:1"><label>Apellido *</label><input id="guest-apellido"></div>
+            </div>
+            <label>Email (Opcional)</label>
+            <input id="guest-email" placeholder="Para enviarte el recibo">
+        </div>
+
+        <button onclick="confirmarPedido()" class="btn btn-buy" style="width:100%; padding: 15px;">✅ Confirmar Pedido</button>
+    </div>
+</div>
+
+<script>
+    const API = 'http://localhost:8080/api';
+    let carrito = [];
+
+    document.addEventListener("DOMContentLoaded", () => {
+        cargarLibros();
+        document.getElementById('buscador').addEventListener('input', function(e) { if(this.value === '') cargarLibros(); });
+        document.getElementById('buscador').addEventListener('keydown', function(e) { if(e.key === 'Enter') cargarLibros(); });
+    });
+
+    // MODAL SYSTEM
+    function mostrarModal(msg, isError = false) {
+        document.getElementById('modal-msg').innerText = msg;
+        const title = document.getElementById('modal-title');
+        title.innerText = isError ? "❌ Error" : "✅ Éxito";
+        title.style.color = isError ? "#e74c3c" : "#27ae60";
+        document.getElementById('modal-overlay').style.display = 'flex';
+    }
+    function cerrarModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+
+    // CARGA DE LIBROS
+    async function cargarLibros() {
+        const term = document.getElementById('buscador').value;
+        const res = await fetch(term ? `${API}/libros?buscar=${term}` : `${API}/libros`);
+        const libros = await res.json();
+        const div = document.getElementById('lista-libros'); div.innerHTML = '';
+
+        if(libros.length === 0) { div.innerHTML = '<p style="text-align:center;width:100%;">No se encontraron resultados.</p>'; return; }
+
+        libros.forEach(l => {
+            const img = l.imagenUrl || 'https://via.placeholder.com/300x180?text=Sin+Imagen';
+            const puedeComprar = (l.stock - 1) >= 5;
+            const puedeAlquilar = l.stock > 0;
+
+            div.innerHTML += `
+                <div class="card">
+                    <img src="${img}" class="card-img" onerror="this.src='https://via.placeholder.com/300x180?text=Error'">
+                    <div class="card-body">
+                        <span class="stock-badge" style="background:${l.stock<5?'#fff3e0':'#e8f5e9'};color:${l.stock<5?'#ef6c00':'#2e7d32'}">Stock: ${l.stock}</span>
+                        <h3 style="margin:5px 0;">${l.titulo}</h3>
+                        <div style="color:#666;font-size:0.9rem;margin-bottom:10px;">${l.autor}</div>
+                        <div class="price-box">
+                            <div style="display:flex;justify-content:space-between;"><span>📖 Alquiler:</span><b>$${l.costoAlquiler}</b></div>
+                            <div style="display:flex;justify-content:space-between;"><span>🏷️ Venta:</span><b>$${l.precioVenta}</b></div>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-rent" ${!puedeAlquilar?'disabled':''} onclick="add(${l.id}, '${l.titulo}', ${l.costoAlquiler}, 'ALQUILER')">Alquilar</button>
+                            <button class="btn btn-buy" ${!puedeComprar?'disabled title="Reserva de Biblio"':''} onclick="add(${l.id}, '${l.titulo}', ${l.precioVenta}, 'VENTA')">Comprar</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    // CARRITO
+    function toggleCarrito() {
+        const panel = document.getElementById('carrito-panel');
+        const overlay = document.getElementById('carrito-overlay');
+        if(panel.classList.contains('abierto')) { panel.classList.remove('abierto'); overlay.style.display='none'; }
+        else { panel.classList.add('abierto'); overlay.style.display='block'; }
+    }
+
+    function add(id, titulo, precio, tipo) {
+        const existe = carrito.find(i => i.id === id && i.tipo === tipo);
+        if(existe) existe.cantidad++; else carrito.push({id, titulo, precio, tipo, cantidad:1});
+        renderCart(); toggleCarrito();
+    }
+
+    function renderCart() {
+        const div = document.getElementById('cart-items'); div.innerHTML = ''; let total = 0; let count = 0;
+        if(carrito.length===0) div.innerHTML='<p style="text-align:center;color:#999;">Vacío</p>';
+
+        carrito.forEach((i, idx) => {
+            total += i.precio * i.cantidad; count += i.cantidad;
+            div.innerHTML += `
+                <div class="cart-item">
+                    <div><b>${i.titulo}</b><br><small>${i.tipo}</small></div>
+                    <div style="text-align:right;">$${i.precio} x ${i.cantidad} <span style="color:red;cursor:pointer;margin-left:5px;" onclick="carrito.splice(${idx},1);renderCart()">&times;</span></div>
+                </div>`;
+        });
+        document.getElementById('cart-total').innerText = total.toFixed(2);
+        document.getElementById('cart-count').innerText = count;
+    }
+
+    async function confirmarPedido() {
+        if(carrito.length === 0) return mostrarModal("El carrito está vacío", true);
+
+        const guest = {
+            dni: document.getElementById('guest-dni').value,
+            nombre: document.getElementById('guest-nombre').value,
+            apellido: document.getElementById('guest-apellido').value,
+            email: document.getElementById('guest-email').value,
+            telefono: "Sin Tel" // Opcional no pedido en UI para simplificar
+        };
+
+        if(!guest.nombre || !guest.apellido) return mostrarModal("Nombre y Apellido son obligatorios", true);
+
+        // Validar DNI solo si hay alquileres
+        const hayAlquiler = carrito.some(i => i.tipo === 'ALQUILER');
+        if(hayAlquiler && !guest.dni) return mostrarModal("El DNI es obligatorio para préstamos.", true);
+
+        const orden = {
+            clienteMostrador: guest,
+            items: carrito.map(i => ({ libroId: i.id, cantidad: i.cantidad, tipo: i.tipo }))
+        };
+
+        try {
+            const res = await fetch(`${API}/pedidos`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(orden) });
+            if(res.ok) {
+                mostrarModal("¡Pedido confirmado! Gracias por usar la Biblioteca Central.");
+                carrito = []; renderCart(); toggleCarrito(); cargarLibros();
+                document.getElementById('guest-dni').value=''; document.getElementById('guest-nombre').value='';
+            } else {
+                const e = await res.json(); mostrarModal("Error: " + e.mensaje, true);
+            }
+        } catch(e) { mostrarModal("Error de conexión", true); }
+    }
+</script>
+</body>
+</html>

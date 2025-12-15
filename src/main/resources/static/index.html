@@ -79,7 +79,7 @@
         </div>
 
         <div class="guest-form">
-            <label>DNI (Obligatorio para Préstamos)</label>
+            <label>DNI</label>
             <input id="guest-dni" placeholder="Tu DNI">
             <div style="display:flex; gap:10px;">
                 <div style="flex:1"><label>Nombre *</label><input id="guest-nombre"></div>
@@ -188,43 +188,63 @@
     }
 
     async function confirmarPedido() {
-        if(carrito.length === 0) return mostrarModal("El carrito está vacío", true);
+            if(carrito.length === 0) return mostrarModal("El carrito está vacío", true);
 
-        const guest = {
-            dni: document.getElementById('guest-dni').value,
-            nombre: document.getElementById('guest-nombre').value,
-            apellido: document.getElementById('guest-apellido').value,
-            email: document.getElementById('guest-email').value,
-            telefono: "Sin Tel"
-        };
+            const guest = {
+                dni: document.getElementById('guest-dni').value,
+                nombre: document.getElementById('guest-nombre').value,
+                apellido: document.getElementById('guest-apellido').value,
+                email: document.getElementById('guest-email').value,
+                telefono: "Sin Tel"
+            };
 
-        if(!guest.nombre || !guest.apellido) return mostrarModal("Nombre y Apellido son obligatorios", true);
-
-        // Validar DNI solo si hay alquileres
-        const hayAlquiler = carrito.some(i => i.tipo === 'ALQUILER');
-        if(hayAlquiler && !guest.dni) return mostrarModal("El DNI es obligatorio para préstamos.", true);
-
-        // NUEVO: Validar formato numérico antes de enviar (Doble seguridad)
-        if (guest.dni && !/^\d+$/.test(guest.dni)) {
-            return mostrarModal("El DNI debe contener solo números.", true);
-        }
-
-        const orden = {
-            clienteMostrador: guest,
-            items: carrito.map(i => ({ libroId: i.id, cantidad: i.cantidad, tipo: i.tipo }))
-        };
-
-        try {
-            const res = await fetch(`${API}/pedidos`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(orden) });
-            if(res.ok) {
-                mostrarModal("¡Pedido confirmado! Gracias por usar la Biblioteca Central.");
-                carrito = []; renderCart(); toggleCarrito(); cargarLibros();
-                document.getElementById('guest-dni').value=''; document.getElementById('guest-nombre').value='';
-            } else {
-                const e = await res.json(); mostrarModal("Error: " + e.mensaje, true);
+            // --- CAMBIO AQUÍ: Validamos todo junto y obligatorio ---
+            if(!guest.nombre || !guest.apellido || !guest.dni) {
+                return mostrarModal("Nombre, Apellido y DNI son obligatorios.", true);
             }
-        } catch(e) { mostrarModal("Error de conexión", true); }
-    }
+
+            // Validar formato numérico
+            if (!/^\d+$/.test(guest.dni)) {
+                return mostrarModal("El DNI debe contener solo números.", true);
+            }
+
+            const orden = {
+                clienteMostrador: guest,
+                items: carrito.map(i => ({ libroId: i.id, cantidad: i.cantidad, tipo: i.tipo }))
+            };
+
+            try {
+                const res = await fetch(`${API}/pedidos`, {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(orden)
+                });
+
+                if(res.ok) {
+                    mostrarModal("¡Pedido confirmado! Gracias por usar la Biblioteca Central.");
+                    carrito = []; renderCart(); toggleCarrito(); cargarLibros();
+                    // Limpiamos formulario
+                    document.getElementById('guest-dni').value='';
+                    document.getElementById('guest-nombre').value='';
+                    document.getElementById('guest-apellido').value='';
+                    document.getElementById('guest-email').value='';
+                } else {
+                    // Intentamos leer el error del backend
+                    const errorText = await res.text();
+                    let mensajeError = "Error desconocido";
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        mensajeError = errorJson.mensaje || errorJson.error || errorText;
+                    } catch(e) {
+                        mensajeError = errorText;
+                    }
+                    mostrarModal("❌ Error: " + mensajeError, true);
+                }
+            } catch(e) {
+                console.error(e);
+                mostrarModal("Error de conexión con el servidor", true);
+            }
+        }
 </script>
 </body>
 </html>

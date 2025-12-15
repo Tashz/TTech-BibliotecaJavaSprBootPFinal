@@ -99,8 +99,17 @@
 
     document.addEventListener("DOMContentLoaded", () => {
         cargarLibros();
+
+        // BUSCADOR: Recargar si se borra
         document.getElementById('buscador').addEventListener('input', function(e) { if(this.value === '') cargarLibros(); });
         document.getElementById('buscador').addEventListener('keydown', function(e) { if(e.key === 'Enter') cargarLibros(); });
+
+        // --- NUEVO: VALIDACIÓN DNI (SOLO NÚMEROS) ---
+        const inputDni = document.getElementById('guest-dni');
+        inputDni.addEventListener('input', function() {
+            // Reemplaza cualquier cosa que NO sea un número (0-9) por vacío
+            this.value = this.value.replace(/[^0-9]/g, '');
+        });
     });
 
     // MODAL SYSTEM
@@ -186,7 +195,7 @@
             nombre: document.getElementById('guest-nombre').value,
             apellido: document.getElementById('guest-apellido').value,
             email: document.getElementById('guest-email').value,
-            telefono: "Sin Tel" // Opcional no pedido en UI para simplificar
+            telefono: "Sin Tel"
         };
 
         if(!guest.nombre || !guest.apellido) return mostrarModal("Nombre y Apellido son obligatorios", true);
@@ -194,6 +203,11 @@
         // Validar DNI solo si hay alquileres
         const hayAlquiler = carrito.some(i => i.tipo === 'ALQUILER');
         if(hayAlquiler && !guest.dni) return mostrarModal("El DNI es obligatorio para préstamos.", true);
+
+        // NUEVO: Validar formato numérico antes de enviar (Doble seguridad)
+        if (guest.dni && !/^\d+$/.test(guest.dni)) {
+            return mostrarModal("El DNI debe contener solo números.", true);
+        }
 
         const orden = {
             clienteMostrador: guest,
